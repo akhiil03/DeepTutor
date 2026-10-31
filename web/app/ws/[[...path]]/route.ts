@@ -49,7 +49,7 @@ export async function GET(request: Request) {
         },
       });
 
-      const pending: WebSocketData[] = [];
+      const pending: Array<WebSocketData | string> = [];
       let open = false;
 
       const close = () => {
@@ -63,7 +63,7 @@ export async function GET(request: Request) {
 
       upstream.on("open", () => {
         open = true;
-        for (const message of pending) upstream.send(message as never);
+        for (const message of pending) upstream.send(message);
         pending.length = 0;
       });
       upstream.on("message", (data, isBinary) => {
@@ -76,11 +76,14 @@ export async function GET(request: Request) {
       upstream.on("close", close);
       upstream.on("error", close);
 
-      ws.on("message", (data: WebSocketData) => {
+      ws.on("message", (data: WebSocketData, isBinary: boolean) => {
+        // The ws server hands back the browser's text frames as Buffers. Send
+        // them upstream as text so FastAPI's receive_text() sees a text frame.
+        const message = isBinary ? data : data.toString();
         if (open) {
-          upstream.send(data as never);
+          upstream.send(message);
         } else {
-          pending.push(data);
+          pending.push(message);
         }
       });
       ws.on("close", close);

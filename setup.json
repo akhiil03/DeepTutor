@@ -1,0 +1,11 @@
+{
+  "llm": {
+    "provider": "nvidia_nim",
+    "model": "openai/gpt-oss-20b",
+    "api_key_env": "NVIDIA_API_KEY"
+  },
+  "system": {
+    "backend_port": 8001,
+    "frontend_port": 3782
+  }
+}

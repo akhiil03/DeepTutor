@@ -1,0 +1,18 @@
+services:
+  - type: web
+    name: deeptutor-api
+    runtime: docker
+    dockerfilePath: ./Dockerfile.render
+    dockerContext: .
+    branch: dev
+    plan: free
+    region: oregon
+    healthCheckPath: /health/ready
+    autoDeployTrigger: "off"
+    envVars:
+      # FastAPI binds this port; the Dockerfile.render wrapper reads it.
+      - key: PORT
+        value: "10000"
+      # Prompted once in the Render dashboard. Never commit the real value.
+      - key: NVIDIA_API_KEY
+        sync: false

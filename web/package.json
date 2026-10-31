@@ -37,6 +37,7 @@
     "@blocknote/core": "0.56.0",
     "@blocknote/react": "0.56.0",
     "@recogito/text-annotator": "4.2.5",
+    "@vercel/functions": "^3.10.5",
     "chart.js": "^4.5.1",
     "clsx": "^2.1.1",
     "cytoscape": "^3.33.1",
@@ -64,7 +65,8 @@
     "rehype-raw": "^7.0.0",
     "remark-gfm": "^4.0.0",
     "remark-math": "^6.0.0",
-    "tailwind-merge": "^3.4.0"
+    "tailwind-merge": "^3.4.0",
+    "ws": "^8.22.1"
   },
   "overrides": {
     "epubjs": {
@@ -81,6 +83,7 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@types/react-syntax-highlighter": "^15.5.13",
+    "@types/ws": "^8.18.2",
     "autoprefixer": "^10.4.20",
     "dependency-cruiser": "^17.4.3",
     "eslint": "^9",

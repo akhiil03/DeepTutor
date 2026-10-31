@@ -90,6 +90,8 @@ const APP_VERSION = (() => {
   return "";
 })();
 
+const ON_VERCEL = Boolean(process.env.VERCEL);
+
 const nextConfig = {
   // Keep the production build used by `deeptutor start` separate from the
   // `.next` development cache used by the explicit `deeptutor start --dev`.
@@ -112,14 +114,15 @@ const nextConfig = {
   },
 
   // Standalone output: self-contained server.js + minimal node_modules
-  // This eliminates the need to copy the full node_modules into Docker production images
-  output: "standalone",
+  // This eliminates the need to copy the full node_modules into Docker production images.
+  // Vercel manages its own output layout and ignores standalone builds.
+  output: ON_VERCEL ? undefined : "standalone",
 
   // Keep the standalone bundle rooted at this frontend directory. Without an
   // explicit root, Next.js can mirror the absolute checkout path inside
   // `.next-deeptutor/standalone`, while the DeepTutor launcher expects
   // `.next-deeptutor/standalone/server.js` directly.
-  outputFileTracingRoot: __dirname,
+  outputFileTracingRoot: ON_VERCEL ? undefined : __dirname,
 
   // web/proxy.ts clones request bodies before rewriting them. Keep enough room
   // for individual large-body endpoints that still use Proxy. Knowledge-base

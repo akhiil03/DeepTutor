@@ -87,7 +87,7 @@ EXCLUDED_SUFFIXES = (
 )
 IGNORED_NAMES = {".snapshot_restored", ".snapshot_state.json"}
 RESTORED_MARKER = DATA_DIR / ".snapshot_restored"
-STATE_FILE = Path(tempfile.gettempdir()) / "deeptutor-snapshot-state.json"
+STATE_FILE = DATA_DIR / ".snapshot_state.json"
 
 _STOP = False
 
@@ -139,8 +139,27 @@ def _iter_files(*, include_volatile: bool) -> list[tuple[Path, Path]]:
     return found
 
 
+def _iter_dirs() -> list[tuple[Path, Path]]:
+    found: list[tuple[Path, Path]] = []
+    if not DATA_DIR.exists():
+        return found
+    for dirpath, dirnames, _filenames in os.walk(DATA_DIR):
+        dirnames[:] = sorted(name for name in dirnames if name not in EXCLUDED_DIRS)
+        for name in dirnames:
+            path = Path(dirpath) / name
+            try:
+                rel = path.relative_to(DATA_DIR)
+            except ValueError:  # pragma: no cover - os.walk keeps this inside
+                continue
+            found.append((path, rel))
+    return found
+
+
 def _fingerprint() -> str:
     digest = hashlib.sha256()
+    for _path, rel in _iter_dirs():
+        digest.update(str(rel).encode("utf-8"))
+        digest.update(b"/")
     for path, rel in _iter_files(include_volatile=True):
         try:
             stat = path.stat()
@@ -170,6 +189,8 @@ def create_snapshot(destination: Path) -> int:
     destination.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(prefix="deeptutor-snapshot-") as scratch:
         with tarfile.open(destination, "w:gz", compresslevel=6) as archive:
+            for path, rel in _iter_dirs():
+                archive.add(path, arcname=str(rel), recursive=False)
             for path, rel in _iter_files(include_volatile=False):
                 if path.suffix.lower() in DB_SUFFIXES:
                     backup = Path(scratch) / f"db-{len(archive.getmembers())}{path.suffix}"
@@ -287,6 +308,45 @@ def _with_retries(action, *, attempts: int = 3) -> None:
             time.sleep(min(30, 5 * attempt))
 
 
+def _ensure_catalog_dirs() -> int:
+    """Recreate registered workspace folders that were empty at snapshot time."""
+    catalog = DATA_DIR / "user/.runtime/workspaces.sqlite3"
+    if not catalog.is_file():
+        return 0
+    root = DATA_DIR.resolve()
+    try:
+        conn = sqlite3.connect(f"file:{catalog.as_posix()}?mode=ro", uri=True, timeout=10)
+        try:
+            rows = conn.execute("SELECT payload FROM workspaces").fetchall()
+        finally:
+            conn.close()
+    except sqlite3.Error as exc:
+        LOG.warning("could not inspect workspace catalog: %s", exc)
+        return 0
+    created = 0
+    for (raw,) in rows:
+        try:
+            payload = json.loads(raw)
+            path = Path(str(payload.get("path") or ""))
+        except (TypeError, ValueError, json.JSONDecodeError):
+            continue
+        if not path.is_absolute():
+            continue
+        try:
+            path.resolve().relative_to(root)
+        except ValueError:
+            continue
+        if path.exists():
+            continue
+        try:
+            path.mkdir(parents=True, exist_ok=True)
+        except OSError as exc:
+            LOG.warning("could not recreate workspace folder %s: %s", path, exc)
+            continue
+        created += 1
+    return created
+
+
 def restore() -> None:
     if not _configured():
         LOG.info("snapshot restore skipped: SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY unset")
@@ -300,9 +360,16 @@ def restore() -> None:
             LOG.info("no snapshot found in %s/%s; starting with local data", BUCKET, OBJECT)
             return
         count = _extract(archive)
+    folders = _ensure_catalog_dirs()
     RESTORED_MARKER.write_text(f"{time.time()}\n", encoding="utf-8")
     _save_state(_fingerprint())
-    LOG.info("restored %s files from %s/%s", count, BUCKET, OBJECT)
+    LOG.info(
+        "restored %s files from %s/%s (%s workspace folders ensured)",
+        count,
+        BUCKET,
+        OBJECT,
+        folders,
+    )
 
 
 def sync_once() -> None:
@@ -367,7 +434,9 @@ def main(argv: list[str]) -> int:
     elif command == "snapshot" and len(argv) > 2:
         print(create_snapshot(Path(argv[2])))
     elif command == "restore-file" and len(argv) > 2:
-        print(_extract(Path(argv[2])))
+        count = _extract(Path(argv[2]))
+        folders = _ensure_catalog_dirs()
+        print(f"{count} files, {folders} workspace folders ensured")
     else:
         print(__doc__)
         return 2

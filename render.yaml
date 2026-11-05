@@ -21,7 +21,9 @@ services:
       # Free durable storage: a private Supabase Storage snapshot bucket.
       - key: SUPABASE_URL
         sync: false
-      - key: SUPABASE_SERVICE_ROLE_KEY
+      # Base64 of the service_role key. Render's env-var API rejects the raw
+      # value with HTTP 500; deploy/render_data_sync.py decodes either form.
+      - key: SUPABASE_SERVICE_ROLE_KEY_B64
         sync: false
       - key: DEEPTUTOR_SNAPSHOT_BUCKET
         value: deeptutor-backups

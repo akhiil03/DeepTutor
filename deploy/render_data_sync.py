@@ -17,6 +17,8 @@ packages. Credentials come from the service environment and are never logged.
 Environment:
     SUPABASE_URL                  Project URL, e.g. https://abc.supabase.co
     SUPABASE_SERVICE_ROLE_KEY     service_role key (server-side only)
+    SUPABASE_SERVICE_ROLE_KEY_B64 base64 of the same key, for platforms whose
+                                  env-var API rejects the raw secret
     DEEPTUTOR_DATA_DIR            default /app/data
     DEEPTUTOR_SNAPSHOT_BUCKET     default deeptutor-backups
     DEEPTUTOR_SNAPSHOT_OBJECT     default latest.tar.gz
@@ -33,6 +35,7 @@ Usage:
 
 from __future__ import annotations
 
+import base64
 import hashlib
 import json
 import logging
@@ -58,6 +61,10 @@ MAX_BYTES = int(os.environ.get("DEEPTUTOR_SNAPSHOT_MAX_BYTES", "900000000"))
 
 SUPABASE_URL = os.environ.get("SUPABASE_URL", "").rstrip("/")
 SERVICE_KEY = os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "")
+if not SERVICE_KEY:
+    encoded_key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY_B64", "")
+    if encoded_key:
+        SERVICE_KEY = base64.b64decode(encoded_key).decode("utf-8")
 
 DB_SUFFIXES = {".db", ".sqlite", ".sqlite3"}
 # Ephemeral, cache-like, or reproducible files do not belong in a snapshot.

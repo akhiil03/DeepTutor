@@ -9,7 +9,8 @@ set -e
 # Render's free filesystem is ephemeral: sessions, practice, settings and KBs
 # are lost on redeploy/restart/spin-down. Restore the last snapshot from
 # Supabase Storage before the app opens its databases.
-if [ -n "${SUPABASE_URL:-}" ] && [ -n "${SUPABASE_SERVICE_ROLE_KEY:-}" ]; then
+if [ -n "${SUPABASE_URL:-}" ] && \
+    { [ -n "${SUPABASE_SERVICE_ROLE_KEY:-}" ] || [ -n "${SUPABASE_SERVICE_ROLE_KEY_B64:-}" ]; }; then
     python /app/render_data_sync.py restore || \
         echo "WARN: snapshot restore failed; starting from local data"
 fi
@@ -103,7 +104,8 @@ PY
 
 # Snapshot uploads run under supervisord so they share the container lifecycle
 # and stop before Render kills the instance.
-if [ -n "${SUPABASE_URL:-}" ] && [ -n "${SUPABASE_SERVICE_ROLE_KEY:-}" ]; then
+if [ -n "${SUPABASE_URL:-}" ] && \
+    { [ -n "${SUPABASE_SERVICE_ROLE_KEY:-}" ] || [ -n "${SUPABASE_SERVICE_ROLE_KEY_B64:-}" ]; }; then
     cat >> /etc/supervisor/conf.d/programs.conf <<'EOF'
 
 [program:data-sync]

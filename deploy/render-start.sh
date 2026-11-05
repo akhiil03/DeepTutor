@@ -6,8 +6,13 @@ set -e
 # env, so persist Render's port before starting.
 : "${PORT:=10000}"
 
-# Print the /app/data mount in deploy logs so persistence is verifiable.
-df -h /app/data 2>/dev/null || true
+# Render's free filesystem is ephemeral: sessions, practice, settings and KBs
+# are lost on redeploy/restart/spin-down. Restore the last snapshot from
+# Supabase Storage before the app opens its databases.
+if [ -n "${SUPABASE_URL:-}" ] && [ -n "${SUPABASE_SERVICE_ROLE_KEY:-}" ]; then
+    python /app/render_data_sync.py restore || \
+        echo "WARN: snapshot restore failed; starting from local data"
+fi
 
 python - <<'PY'
 import json, os
@@ -24,9 +29,9 @@ data["frontend_port"] = 3782
 settings.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
 PY
 
-# /app/data is a persistent disk (see render.yaml), but the very first boot on
-# an empty disk has no catalog. Rebuild the LLM profile from the service
-# environment so chat keeps working without re-entering the key in the UI.
+# A cold instance (first boot, or a snapshot without a catalog) has no LLM
+# profile. Rebuild it from the service environment so chat keeps working
+# without re-entering the key in the UI.
 python - <<'PY'
 import json, os
 from pathlib import Path
@@ -95,5 +100,27 @@ text = conf.read_text(encoding="utf-8")
 text = text.split("[program:frontend]", 1)[0].rstrip() + "\n"
 conf.write_text(text, encoding="utf-8")
 PY
+
+# Snapshot uploads run under supervisord so they share the container lifecycle
+# and stop before Render kills the instance.
+if [ -n "${SUPABASE_URL:-}" ] && [ -n "${SUPABASE_SERVICE_ROLE_KEY:-}" ]; then
+    cat >> /etc/supervisor/conf.d/programs.conf <<'EOF'
+
+[program:data-sync]
+command=/usr/local/bin/python /app/render_data_sync.py sync-loop
+directory=/app
+user=deeptutor
+autostart=true
+autorestart=unexpected
+startsecs=5
+stopwaitsecs=120
+stopsignal=TERM
+stdout_logfile=/dev/fd/1
+stdout_logfile_maxbytes=0
+stderr_logfile=/dev/fd/2
+stderr_logfile_maxbytes=0
+environment=PYTHONPATH="/app",PYTHONUNBUFFERED="1",HOME="/home/deeptutor"
+EOF
+fi
 
 exec /app/entrypoint.sh

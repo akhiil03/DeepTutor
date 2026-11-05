@@ -3,6 +3,7 @@ FROM ghcr.io/akhiil03/deeptutor:latest
 # Render wrapper: binds the API to Render's injected PORT and drops the
 # bundled Next.js server, since the UI is hosted separately on Vercel.
 COPY deploy/render-start.sh /app/render-start.sh
+COPY deploy/render_data_sync.py /app/render_data_sync.py
 RUN chmod +x /app/render-start.sh
 
 ENTRYPOINT ["/bin/bash", "/app/render-start.sh"]

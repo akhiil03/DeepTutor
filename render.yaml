@@ -5,17 +5,12 @@ services:
     dockerfilePath: ./Dockerfile.render
     dockerContext: .
     branch: dev
-    # A persistent disk needs a paid instance type; free instances have an
-    # ephemeral filesystem and lose sessions, practice, mastery, settings, KBs
-    # and artifacts on every deploy/restart.
-    plan: starter
+    # Free instances cannot attach a disk; deploy/render-start.sh restores and
+    # uploads /app/data snapshots to Supabase Storage instead.
+    plan: free
     region: oregon
     healthCheckPath: /health/ready
     autoDeployTrigger: "off"
-    disk:
-      name: deeptutor-data
-      mountPath: /app/data
-      sizeGB: 1
     envVars:
       # FastAPI binds this port; the Dockerfile.render wrapper reads it.
       - key: PORT
@@ -23,3 +18,10 @@ services:
       # Prompted once in the Render dashboard. Never commit the real value.
       - key: NVIDIA_API_KEY
         sync: false
+      # Free durable storage: a private Supabase Storage snapshot bucket.
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: DEEPTUTOR_SNAPSHOT_BUCKET
+        value: deeptutor-backups

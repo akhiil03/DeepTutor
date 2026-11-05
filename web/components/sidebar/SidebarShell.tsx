@@ -181,7 +181,7 @@ export function SidebarShell({
       event.preventDefault();
       const target = categoryNav.categories[index];
       categoryNav.select(target.id);
-      if (collapsed) navigateTask(target.href, router.push);
+      navigateTask(target.href, router.push);
     }
   };
   useLayoutEffect(() => {
@@ -335,10 +335,12 @@ export function SidebarShell({
           </Tooltip>
         )}
 
-        {homeSlot ? homeSlot(true) : <CategoryTabs nav={categoryNav} collapsed />}
-        <div className="min-h-0 w-full flex-1 overflow-y-auto overscroll-contain">
-          {bodySlot ? bodySlot(true) : <CategoryBody nav={categoryNav} collapsed sessions={null} />}
-        </div>
+        {homeSlot ? homeSlot(true) : <CategoryTabs nav={categoryNav} onNavigate={() => drawer?.close()} />}
+        {bodySlot ? (
+          <div className="min-h-0 w-full flex-1 overflow-y-auto overscroll-contain">
+            {bodySlot(true)}
+          </div>
+        ) : null}
 
         {footerOverride ? footerOverride(true) : (
           <div className="dt-rail-foot">
@@ -354,13 +356,13 @@ export function SidebarShell({
     );
   }
 
-  /* ---- Expanded state ---- */
-  return (
-    <aside
-      style={{ "--sidebar-width": `${resize.width}px` } as CSSProperties}
-      className={`${bodySlot ? "" : "dt-product-sidebar"} relative flex h-dvh w-[var(--sidebar-width)] max-w-[45vw] shrink-0 flex-col bg-[var(--secondary)] max-md:w-[220px] max-md:max-w-[85vw]`}
-    >
-      {bodySlot ? (
+  /* ---- Expanded state for custom bodies (preview / host screens) ---- */
+  if (bodySlot) {
+    return (
+      <aside
+        style={{ "--sidebar-width": `${resize.width}px` } as CSSProperties}
+        className="relative flex h-dvh w-[var(--sidebar-width)] max-w-[45vw] shrink-0 flex-col bg-[var(--secondary)] max-md:w-[220px] max-md:max-w-[85vw]"
+      >
         <div className="flex h-[52px] shrink-0 items-center justify-between px-4">
           <Link href={brandHref} prefetch={false} className="group flex items-center gap-1.5">
             <Image
@@ -389,7 +391,65 @@ export function SidebarShell({
             <PanelLeftClose size={15} />
           </button>
         </div>
-      ) : (
+
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain pb-2">
+          <Suspense fallback={<div aria-busy="true" className="mx-4 mt-5 h-3 w-28 rounded bg-muted" />}>
+            {bodySlot(false)}
+          </Suspense>
+        </div>
+
+        {footerOverride ? footerOverride(false) : (
+          <div className="dt-sidebar-footer">
+            <Tooltip label={t("navigation.newChat")} side="top" shortcut={SHORTCUTS.newChat} as="div" className="block w-full">
+              <Link prefetch={false} href="/chat" onClick={handleHomeClick} className="dt-new-conversation">
+                <SquarePen size={16} strokeWidth={1.7} />
+                <span>{t("navigation.newChat")}</span>
+              </Link>
+            </Tooltip>
+          </div>
+        )}
+        {!isMobile && (
+          <div
+            role="separator"
+            aria-label={t("Resize sidebar")}
+            aria-orientation="vertical"
+            aria-valuemin={resize.min}
+            aria-valuemax={resize.max}
+            aria-valuenow={resize.width}
+            tabIndex={0}
+            {...resize.handleProps}
+            className="group/resize absolute inset-y-0 -right-1 z-30 w-2 touch-none cursor-col-resize outline-none max-md:hidden"
+          >
+            <div
+              className={`mx-auto h-full w-0.5 transition-colors group-hover/resize:bg-[var(--ring)] group-focus-visible/resize:bg-[var(--ring)] ${resize.resizing ? "bg-[var(--ring)]" : "bg-transparent"}`}
+            />
+          </div>
+        )}
+        {palette}
+      </aside>
+    );
+  }
+
+  /* ---- Rail + panel: shelves stay in the rail, the panel shows one ---- */
+  return (
+    <aside
+      style={{ "--sidebar-width": `${resize.width}px` } as CSSProperties}
+      className="dt-product-sidebar is-double relative flex h-dvh shrink-0 bg-[var(--secondary)]"
+    >
+      <div className="dt-sidebar-rail">
+        <Link href={brandHref} prefetch={false} aria-label="DeepTutor" className="dt-rail-brand">
+          <Image
+            src="/brand/color-logo.png"
+            alt="DeepTutor"
+            width={22}
+            height={22}
+            className="h-[22px] w-[22px] rounded-md"
+          />
+        </Link>
+        <CategoryTabs nav={categoryNav} onNavigate={() => drawer?.close()} />
+      </div>
+
+      <div className="dt-sidebar-panel">
         <div className="dt-sidebar-header">
           <WorkspaceMenu accountSlot={renderedFooter} onNavigate={() => drawer?.close()} />
           <Tooltip label={t("navigation.search")} side="bottom" shortcut={SHORTCUTS.search}>
@@ -416,31 +476,30 @@ export function SidebarShell({
             </button>
           </Tooltip>
         </div>
-      )}
 
-      {homeSlot ? homeSlot(false) : <CategoryTabs nav={categoryNav} collapsed={false} />}
+        {/* Partner previews stay visible while their conversation list scrolls. */}
+        <div
+          ref={recentsScrollRef}
+          className={`min-h-0 flex-1 ${["partners", "learning"].includes(categoryNav.category) ? "overflow-hidden" : "overflow-y-auto overscroll-contain pb-2"}`}
+        >
+          <Suspense fallback={<div aria-busy="true" className="mx-4 mt-5 h-3 w-28 rounded bg-muted" />}>
+            {homeSlot ? homeSlot(false) : <CategoryBody nav={categoryNav} collapsed={false} sessions={sessionContent} learningSessions={learningSessions} />}
+          </Suspense>
+        </div>
 
-      {/* Partner previews stay visible while their conversation list scrolls. */}
-      <div
-        ref={recentsScrollRef}
-        className={`min-h-0 flex-1 ${!bodySlot && ["partners", "learning"].includes(categoryNav.category) ? "overflow-hidden" : "overflow-y-auto overscroll-contain pb-2"}`}
-      >
-        <Suspense fallback={<div aria-busy="true" className="mx-4 mt-5 h-3 w-28 rounded bg-muted" />}>
-          {bodySlot ? bodySlot(false) : <CategoryBody nav={categoryNav} collapsed={false} sessions={sessionContent} learningSessions={learningSessions} />}
-        </Suspense>
+        {/* Secondary nav + footer */}
+        {footerOverride ? footerOverride(false) : (
+          <div className="dt-sidebar-footer">
+            <Tooltip label={t("navigation.newChat")} side="top" shortcut={SHORTCUTS.newChat} as="div" className="block w-full">
+              <Link prefetch={false} href="/chat" onClick={handleHomeClick} className="dt-new-conversation">
+                <SquarePen size={16} strokeWidth={1.7} />
+                <span>{t("navigation.newChat")}</span>
+              </Link>
+            </Tooltip>
+          </div>
+        )}
       </div>
 
-      {/* Secondary nav + footer */}
-      {footerOverride ? footerOverride(false) : (
-        <div className="dt-sidebar-footer">
-          <Tooltip label={t("navigation.newChat")} side="top" shortcut={SHORTCUTS.newChat} as="div" className="block w-full">
-            <Link prefetch={false} href="/chat" onClick={handleHomeClick} className="dt-new-conversation">
-              <SquarePen size={16} strokeWidth={1.7} />
-              <span>{t("navigation.newChat")}</span>
-            </Link>
-          </Tooltip>
-        </div>
-      )}
       {!isMobile && (
         <div
           role="separator"

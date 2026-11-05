@@ -21,7 +21,7 @@ export type TrayPlacement = "up" | "down";
 
 const OPTION = "[data-tray-option]:not(:disabled)";
 const EASE_OUT = [0.16, 1, 0.3, 1] as const;
-/** Space kept between the list and its button, and between it and the window edge. */
+/** Space kept between the list and its button, and between it and the page edge. */
 const GAP = 8;
 const MARGIN = 12;
 /** Below this, the preferred side is too cramped and the other one is tried. */
@@ -29,18 +29,45 @@ const ROOMY = 240;
 
 interface Room {
   side: TrayPlacement;
-  /** Tallest the list may be on that side without leaving the window. */
+  /** Tallest the list may be on that side without being clipped. */
   max: number;
+}
+
+/** The visible box that actually clips this trigger: the nearest ancestor
+   whose overflow isn't visible (the content wrapper under the page bar, the
+   chat shell, etc.). Falls back to the viewport itself. */
+function clipRoom(trigger: HTMLElement): { top: number; bottom: number } {
+  let el: HTMLElement | null = trigger.parentElement;
+  let top = -Infinity;
+  let bottom = Infinity;
+  let clipped = false;
+  while (el && el !== document.body) {
+    const cs = getComputedStyle(el);
+    if (cs.overflowX !== 'visible' || cs.overflowY !== 'visible') {
+      const r = el.getBoundingClientRect();
+      top = Math.max(top, r.top);
+      bottom = Math.min(bottom, r.bottom);
+      clipped = true;
+    }
+    el = el.parentElement;
+  }
+  return clipped ? { top, bottom } : { top: 0, bottom: window.innerHeight };
 }
 
 /**
  * Where a list opened from `trigger` fits. It keeps the side it was asked
  * for unless that side is cramped and the other has more room, and it is
  * never taller than the room it ends up with — the options scroll inside.
+ * The room is measured inside `clip`, so a page bar or shell above the
+   trigger doesn't cut the list off.
  */
-function roomFor(trigger: DOMRect, preferred: TrayPlacement): Room {
-  const below = window.innerHeight - trigger.bottom - GAP - MARGIN;
-  const above = trigger.top - GAP - MARGIN;
+function roomFor(
+  trigger: DOMRect,
+  preferred: TrayPlacement,
+  clip: { top: number; bottom: number },
+): Room {
+  const below = clip.bottom - trigger.bottom - GAP - MARGIN;
+  const above = trigger.top - clip.top - GAP - MARGIN;
   const [mine, other] = preferred === "down" ? [below, above] : [above, below];
   const side = mine < ROOMY && other > mine ? (preferred === "down" ? "up" : "down") : preferred;
   return { side, max: Math.max(160, Math.floor(side === "down" ? below : above)) };
@@ -188,7 +215,10 @@ export function TrayMenu({
         data-active={active || undefined}
         onClick={(event) => {
           // Measured on the way in, so the list opens on the side it fits.
-          if (!open) setRoom(roomFor(event.currentTarget.getBoundingClientRect(), placement));
+          if (!open)
+            setRoom(
+              roomFor(event.currentTarget.getBoundingClientRect(), placement, clipRoom(event.currentTarget)),
+            );
           setOpen(!open);
         }}
         data-fold={fold || undefined}

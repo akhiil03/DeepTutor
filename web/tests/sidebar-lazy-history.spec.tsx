@@ -73,9 +73,13 @@ it("loads conversation history while navigation remains usable, then preserves s
     "/co-writer",
   );
 
-  const history = await screen.findByText("Retained session");
+  const history = await screen.findByText("Retained session", {}, { timeout: 5000 });
   const scroller = history.closest(".overflow-y-auto");
-  expect(scroller).toContainElement(
+  // Workspace tools live in the rail, which stays usable while history loads.
+  expect(container.querySelector(".dt-sidebar-rail")).toContainElement(
+    screen.getByRole("link", { name: "Co-Writer" }),
+  );
+  expect(scroller).not.toContainElement(
     screen.getByRole("link", { name: "Co-Writer" }),
   );
   expect(scroller).not.toContainElement(

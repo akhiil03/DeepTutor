@@ -79,10 +79,16 @@
   --dt-nav-ink: color-mix(in srgb, var(--foreground) 82%, transparent);
 }
 .dt-product-sidebar .dt-category-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 2px; padding: 2px 8px 8px; flex-shrink: 0; }
-.dt-category-bar [role="tablist"] { display: flex; flex: 1; align-items: center; min-width: 0; gap: 1px; }
+.dt-category-bar [role="tablist"] { display: flex; flex: 1; flex-wrap: wrap; align-items: center; min-width: 0; gap: 2px; }
 /* Padding gives way first as the sidebar narrows, so a selected account shelf
    (the longest row) still fits. */
-.dt-category-bar [role="tab"] { position: relative; display: flex; align-items: center; justify-content: center; flex: 1; min-width: 34px; height: 34px; gap: 6px; padding: 0 clamp(5px, (100cqi - 180px) / 10, 10px); color: var(--muted-foreground); border-radius: var(--dt-nav-radius); transition: color 140ms, background-color 140ms; }
+.dt-category-bar [role="tab"] { position: relative; display: flex; align-items: center; justify-content: center; flex: 1 1 0; min-width: 34px; height: 34px; gap: 6px; padding: 0 clamp(5px, (100cqi - 180px) / 10, 10px); color: var(--muted-foreground); border-radius: var(--dt-nav-radius); transition: color 140ms, background-color 140ms; }
+/* Tooltip wraps each tab in a span; it, not the button, is the flex item the
+   shelf bar lays out. Let it take the row's spare width so a label always has
+   room instead of clustering the tabs against the left edge. */
+.dt-category-bar:not(.is-collapsed) .dt-category-tab { flex: 1 1 0; min-width: 0; }
+.dt-category-bar:not(.is-collapsed) .dt-category-tab.is-active { flex-grow: 1.9; }
+.dt-category-bar:not(.is-collapsed) .dt-category-tab > [role="tab"] { flex: 1 1 0; width: 100%; }
 .dt-category-bar [role="tab"] > svg, .dt-category-bar [role="tab"] > span:not(.dt-category-pill) { position: relative; z-index: 1; flex-shrink: 0; }
 .dt-category-bar [role="tab"] > span:not(.dt-category-pill) { display: none; font-size: 13.5px; font-weight: 500; white-space: nowrap; }
 .dt-category-bar [role="tab"].is-active { flex: 1.9; color: var(--foreground); }
@@ -92,32 +98,21 @@
 .dt-category-bar:not(.is-collapsed) :has(> [role="tab"].is-active) { min-width: 0; }
 .dt-category-bar [role="tab"].is-active > span:not(.dt-category-pill) { flex-shrink: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .dt-category-pill { position: absolute; inset: 0; border-radius: var(--dt-nav-radius); background: var(--accent); }
-/* Workspace shelves | account shelves. */
-.dt-category-divider { flex: none; width: 1px; height: 14px; margin: 0 4px; background: color-mix(in srgb, var(--border) 85%, transparent); }
-.dt-category-bar.is-collapsed .dt-category-divider { width: 18px; height: 1px; margin: 2px auto; }
+/* Workspace shelves above, account shelves below. The divider is a full-width
+   rule that forces the account pair onto its own row, so neither group has to
+   compete for the same horizontal space. */
+.dt-category-bar:not(.is-collapsed) .dt-category-divider { flex: 0 0 100%; width: auto; height: 1px; margin: 3px 0 1px; background: color-mix(in srgb, var(--border) 75%, transparent); }
+.dt-category-bar.is-collapsed .dt-category-divider { width: 18px; height: 1px; margin: 2px auto; background: color-mix(in srgb, var(--border) 85%, transparent); }
 /* The selected shelf's mark fills in, so selection reads in the glyph too. */
 .dt-shelf-fill { fill: transparent; transition: fill 180ms var(--dt-ease); }
 /* Two-tone composer marks: a wash of the line colour for the body, solid for the spark. */
 .dt-duo { fill: currentColor; fill-opacity: 0.16; }
 .dt-duo-solid { fill: currentColor; }
 .dt-category-bar [role="tab"].is-active .dt-shelf-fill { fill: color-mix(in srgb, currentColor 16%, transparent); }
-/* The account's pair folds small while the workspace is in use and opens
-   under the pointer or focus. */
-.dt-account-tabs { display: flex; align-items: center; gap: 1px; flex: 0 1 auto; min-width: 0; }
+/* The account's shelves own the row beneath the divider. */
+.dt-account-tabs { display: flex; align-items: center; gap: 2px; flex: 0 1 auto; min-width: 0; }
+.dt-category-bar:not(.is-collapsed) .dt-account-tabs { flex: 1 1 100%; }
 .dt-category-bar.is-collapsed .dt-account-tabs { flex-direction: column; gap: 5px; }
-.dt-account-tabs [role="tab"] { transition: padding 240ms var(--dt-ease), margin 240ms var(--dt-ease), opacity 200ms, color 140ms, background-color 140ms; }
-.dt-account-tabs [role="tab"] > svg { transition: transform 240ms var(--dt-ease); }
-/* Folded, the pair stacks: the first mark in front, wearing a halo in the
-   sidebar's own colour, the second peeking out from behind it. */
-.dt-account-tabs.is-tucked [role="tab"] { min-width: 0; padding: 0 6px; }
-.dt-account-tabs.is-tucked > :first-child { position: relative; z-index: 2; }
-.dt-account-tabs.is-tucked > :first-child [role="tab"] > svg { filter: drop-shadow(1.5px 0 0 var(--secondary)) drop-shadow(1.5px 1px 0 var(--secondary)); }
-.dt-account-tabs.is-tucked > :last-child [role="tab"] { margin-left: -23px; padding-left: 0; opacity: .5; }
-.dt-account-tabs.is-tucked > :last-child [role="tab"] > svg { transform: translateX(10px) scale(.86); }
-.dt-account-tabs.is-tucked:hover [role="tab"] { opacity: 1; }
-/* The account's half sits at the far end of the bar. */
-.dt-category-bar:not(.is-collapsed) .dt-category-divider { margin-left: auto; }
-@media (prefers-reduced-motion: reduce) { .dt-account-tabs [role="tab"], .dt-account-tabs [role="tab"] > svg { transition: none; } }
 .dt-category-bar [role="tab"]:not(.is-active):hover, .dt-nav-icon:hover { background: var(--accent); color: var(--foreground); }
 .dt-nav-icon { display: inline-flex; flex-shrink: 0; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: var(--dt-nav-radius); color: var(--muted-foreground); transition: background-color 140ms, color 140ms; }
 .dt-category-bar button:focus-visible, .dt-navigation-row:focus-visible, .dt-nav-icon:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
@@ -262,6 +257,42 @@ button.dt-record-toggle:focus-visible { outline: 2px solid var(--ring); outline-
 .dt-rail-brand { display: grid; place-items: center; width: 36px; height: 36px; }
 .dt-rail-divider { width: 18px; height: 1px; margin: 5px 0; background: color-mix(in srgb, var(--border) 85%, transparent); }
 .dt-rail-foot { display: flex; flex-direction: column; align-items: center; gap: 4px; flex-shrink: 0; padding-top: 6px; }
+
+/* ---- Double column: fixed shelf rail beside the resizable shelf panel -- */
+.dt-product-sidebar.is-double { flex-direction: row; width: calc(60px + var(--sidebar-width)); max-width: calc(60px + 45vw); }
+.dt-sidebar-rail {
+  display: flex; flex: 0 0 60px; width: 60px; flex-direction: column; align-items: center; gap: 4px;
+  padding: 12px 0; border-right: 1px solid color-mix(in srgb, var(--border) 75%, transparent);
+}
+.dt-sidebar-rail > .dt-rail-brand { margin-bottom: 4px; }
+/* The rail owns the full column height so the account shelves can sit at its foot. */
+.dt-product-sidebar .dt-sidebar-rail > .dt-category-bar,
+.dt-product-sidebar .dt-rail > .dt-category-bar { flex: 1 1 auto; min-height: 0; width: 100%; padding: 0 4px; }
+.dt-product-sidebar .dt-sidebar-rail .dt-category-bar.is-collapsed [role="tab"] { padding: 0; }
+/* Shelf groups stay content-sized; the spacer above the account pair owns the
+   leftover height, so the tools and account shelves can share one column. */
+.dt-sidebar-rail .dt-rail-shelves,
+.dt-rail .dt-rail-shelves,
+.dt-sidebar-rail .dt-account-tabs,
+.dt-rail .dt-account-tabs { flex: 0 0 auto; }
+.dt-rail-spacer { flex: 1 1 auto; min-height: 8px; }
+/* Workspace tools (Calendar, Task Board, Notebook) ride in the rail as links. */
+.dt-rail-tools { display: flex; flex-direction: column; align-items: center; gap: 5px; padding-top: 6px; }
+.dt-rail-tool {
+  position: relative; display: flex; align-items: center; justify-content: center;
+  width: 36px; height: 36px; border-radius: var(--dt-nav-radius);
+  color: var(--muted-foreground); transition: background-color 140ms, color 140ms;
+}
+.dt-rail-tool:hover, .dt-rail-tool.is-active { background: var(--accent); color: var(--foreground); }
+.dt-rail-tool:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
+.dt-sidebar-panel {
+  display: flex; flex: 0 0 var(--sidebar-width); width: var(--sidebar-width); min-width: 0; flex-direction: column;
+}
+@media (max-width: 767px) {
+  .dt-product-sidebar.is-double { width: min(calc(56px + var(--sidebar-width)), 88vw); max-width: 88vw; }
+  .dt-sidebar-rail { flex-basis: 56px; width: 56px; }
+  .dt-sidebar-panel { flex: 1 1 auto; width: auto; }
+}
 .dt-workspace-menu.is-rail { flex: none; margin-bottom: 2px; }
 .dt-workspace-menu.is-rail .dt-workspace-trigger { justify-content: center; width: 36px; height: 36px; padding: 0; }
 .dt-workspace-menu.is-rail .dt-workspace-panel { top: 0; left: calc(100% + 10px); width: 264px; }

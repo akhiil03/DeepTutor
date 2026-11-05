@@ -57,20 +57,38 @@ export function CapabilityAccessProvider({
 
   const refresh = useCallback(async () => {
     try {
-      // The settings payload only exposes the catalog to admins, so its
-      // presence is our admin signal — admins are never gated.
-      const res = await apiFetch(apiUrl("/api/settings"));
-      if (!res.ok) return;
-      const payload = (await res.json()) as { catalog?: unknown };
-      if (payload.catalog) {
-        setIsAdmin(true);
-        setHasLlm(true);
-        return;
+      // Fire both requests in parallel; the settings result decides whether
+      // we're an admin (in which case LLM options are irrelevant).
+      const [settingsRes, llmRes] = await Promise.allSettled([
+        apiFetch(apiUrl("/api/settings")),
+        listLLMOptions(),
+      ]);
+      let isAdmin = true;
+      let hasLlm = true;
+      if (
+        settingsRes.status === "fulfilled" &&
+        settingsRes.value.ok
+      ) {
+        const payload = (await settingsRes.value.json()) as {
+          catalog?: unknown;
+        };
+        if (payload.catalog) {
+          isAdmin = true;
+          hasLlm = true;
+        } else {
+          isAdmin = false;
+          if (llmRes.status === "fulfilled") {
+            hasLlm = llmRes.value.options.length > 0;
+          }
+        }
+      } else {
+        isAdmin = false;
+        if (llmRes.status === "fulfilled") {
+          hasLlm = llmRes.value.options.length > 0;
+        }
       }
-      setIsAdmin(false);
-      // Non-admins: their grant-filtered LLM options decide access.
-      const { options } = await listLLMOptions();
-      setHasLlm(options.length > 0);
+      setIsAdmin(isAdmin);
+      setHasLlm(hasLlm);
     } catch {
       // Keep last known state; the backend still enforces access on every call.
     } finally {

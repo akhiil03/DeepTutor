@@ -6,6 +6,9 @@ set -e
 # env, so persist Render's port before starting.
 : "${PORT:=10000}"
 
+# Print the /app/data mount in deploy logs so persistence is verifiable.
+df -h /app/data 2>/dev/null || true
+
 python - <<'PY'
 import json, os
 from pathlib import Path
@@ -21,9 +24,9 @@ data["frontend_port"] = 3782
 settings.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
 PY
 
-# Render's filesystem does not survive a redeploy. When the catalog has no LLM
-# profile (a fresh instance), rebuild it from the service environment so chat
-# keeps working without re-entering the key in the UI.
+# /app/data is a persistent disk (see render.yaml), but the very first boot on
+# an empty disk has no catalog. Rebuild the LLM profile from the service
+# environment so chat keeps working without re-entering the key in the UI.
 python - <<'PY'
 import json, os
 from pathlib import Path

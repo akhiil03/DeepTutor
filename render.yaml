@@ -5,10 +5,17 @@ services:
     dockerfilePath: ./Dockerfile.render
     dockerContext: .
     branch: dev
-    plan: free
+    # A persistent disk needs a paid instance type; free instances have an
+    # ephemeral filesystem and lose sessions, practice, mastery, settings, KBs
+    # and artifacts on every deploy/restart.
+    plan: starter
     region: oregon
     healthCheckPath: /health/ready
     autoDeployTrigger: "off"
+    disk:
+      name: deeptutor-data
+      mountPath: /app/data
+      sizeGB: 1
     envVars:
       # FastAPI binds this port; the Dockerfile.render wrapper reads it.
       - key: PORT
